@@ -3,8 +3,14 @@ const app = express();
 const router = new express.Router();
 const Customer = require("../db/models/customer");
 const Account = require("../db/models/account");
-const Loan = require("../db/models/loans");
+const { Loan } = require("../db/models/loans");
 const Scheme = require("../db/models/scheme");
+
+const amount = [1000, 2000, 3000, 4000, 5000];
+function getRandomNumberFromArray(arr) {
+  const randomIndex = Math.floor(Math.random() * arr.length);
+  return arr[randomIndex];
+}
 
 router.post("/customers/kyc", async (req, res) => {
   try {
@@ -64,15 +70,54 @@ router.post("/customers/account", async (req, res) => {
 router.post("/customers/appraisal", async (req, res) => {
   try {
     const scheme = await Scheme.findOne({ schemeName: "scheme-one" });
-    if (scheme) {
-      const newLoan = new Loan({ jewels: req.body.jewels, scheme: scheme });
-      await newLoan.save();
-      res.status(201).json({ message: "Loan created successfully" });
-    } else {
+    const getCustomer = await Customer.findOne({ name: req.body.name });
+
+    if (!scheme) {
       res.status(404).json({ message: "Schema not found" });
+      return;
     }
+    if (!getCustomer) {
+      res.status(404).json({ message: "Customer not found" });
+      return;
+    }
+    const newLoan = new Loan({
+      jewels: req.body.jewels,
+      scheme: scheme,
+      customer: getCustomer,
+    });
+    await newLoan.save();
+    res.status(201).json({ message: "Loan created successfully" });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+router.post("/customer/transaction", async (req, res) => {
+  try {
+    const customer = await Customer.findOne({ name: req.body.name });
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+    const loans = await Loan.findOne({ customer: customer._id });
+    const accounts = await Account.findOne({ customer: customer._id });
+    const loanAmount = getRandomNumberFromArray(amount);
+    res.status(200).json({
+      message: `${loanAmount} is credited into ${customer.name}'s account number ${accounts.accountNumber} `,
+      customer: {
+        _id: customer._id,
+        name: customer.name,
+        aadharFront: customer.aadharFront,
+        aadharBack: customer.aadharBack,
+        pan: customer.pan,
+      },
+      loans,
+      accounts,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 module.exports = router;
