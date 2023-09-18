@@ -3,6 +3,8 @@ const app = express();
 const router = new express.Router();
 const Customer = require("../db/models/customer");
 const Account = require("../db/models/account");
+const Loan = require("../db/models/loans");
+const Scheme = require("../db/models/scheme");
 
 router.post("/customers/kyc", async (req, res) => {
   try {
@@ -59,4 +61,18 @@ router.post("/customers/account", async (req, res) => {
   }
 });
 
+router.post("/customers/appraisal", async (req, res) => {
+  try {
+    const scheme = await Scheme.findOne({ schemeName: "scheme-one" });
+    if (scheme) {
+      const newLoan = new Loan({ jewels: req.body.jewels, scheme: scheme });
+      await newLoan.save();
+      res.status(201).json({ message: "Loan created successfully" });
+    } else {
+      res.status(404).json({ message: "Schema not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 module.exports = router;
