@@ -4,18 +4,25 @@ const Account = require("./account");
 const Customer = require("./customer");
 const { Jewel } = require("./loans");
 
-const mongoose = require("mongoose");
-
 const transactionSchema = new mongoose.Schema({
   loan: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Loan",
     required: true,
   },
-  account: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Account",
+  customerName: {
+    type: String,
     required: true,
+  },
+  accountDetails: {
+    accountNumber: {
+      type: String,
+      required: true,
+    },
+    ifsc: {
+      type: String,
+      required: true,
+    },
   },
 });
 
