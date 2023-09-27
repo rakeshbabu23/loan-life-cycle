@@ -34,6 +34,48 @@ router.post("/customers/kyc", async (req, res) => {
       .json({ error: "Error in creating customer", message: e.message });
   }
 });
+router.put("/customers/:customerId", async (req, res) => {
+  try {
+    const customerId = req.params.customerId;
+    const updateFields = req.body; 
+    const updatedCustomer = await Customer.findByIdAndUpdate(
+      customerId,
+      updateFields,
+      { new: true }
+    );
+    if (updatedCustomer) {
+      res.status(200).json({
+        message: "Customer updated",
+        customer: updatedCustomer,
+      });
+    } else {
+      res.status(404).json({ error: "Customer not found" });
+    }
+  } catch (e) {
+    res
+      .status(500)
+      .json({ error: "Error in updating customer", message: e.message });
+  }
+});
+
+router.delete("/customers/:customerId", async (req, res) => {
+  try {
+    const customerId = req.params.customerId;
+    const deletedCustomer = await Customer.findByIdAndRemove(customerId);
+    if (deletedCustomer) {
+      res.status(200).json({
+        message: "Customer deleted",
+        customer: deletedCustomer,
+      });
+    } else {
+      res.status(404).json({ error: "Customer not found" });
+    }
+  } catch (e) {
+    res
+      .status(500)
+      .json({ error: "Error in deleting customer", message: e.message });
+  }
+});
 
 router.post("/customers/account", async (req, res) => {
   try {
@@ -121,7 +163,6 @@ router.post("/customers/appraisal", async (req, res) => {
     await newLoan.save();
     res.status(201).json({ message: "Loan created successfully" });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -152,7 +193,6 @@ router.post("/customer/transaction", async (req, res) => {
       message: `${loanAmount} is credited into ${newTransaction.customerName}'s account number ${newTransaction.accountDetails.accountNumber}`,
     });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
