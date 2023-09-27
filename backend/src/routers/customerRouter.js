@@ -12,26 +12,44 @@ function getRandomNumberFromArray(arr) {
   const randomIndex = Math.floor(Math.random() * arr.length);
   return arr[randomIndex];
 }
-
-router.post("/customers/kyc", async (req, res) => {
+router.post('/customers', async (req, res) => {
   try {
-    const { name, aadharFront, aadharBack, pan } = req.body;
-    if (!name || !aadharFront || !aadharBack || !pan) {
+    const { name, contactInfo } = req.body;
+    if (!name || !contactInfo) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const customer = new Customer({ name, contactInfo });
+    const savedCustomer = await customer.save();
+
+    res.status(201).json({
+      message: 'Customer created',
+      customer: savedCustomer,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error in creating customer', message: error.message });
+  }
+});
+
+router.post("/customers/:customerId/kyc", async (req, res) => {
+  try {
+    const {aadharFront, aadharBack, pan } = req.body;
+    if (!aadharFront || !aadharBack || !pan) {
       return res.status(400).json({ error: "Missing required fields" });
     }
     const customer = new Customer(req.body);
     const result = await customer.save();
     if (result) {
-      res.status(201).json({
-        message: "Customer created",
+      res.status(200).json({
+        message: "'KYC documents uploaded successfully'",
       });
     } else {
-      res.status(500).json({ error: "Failed to create customer" });
+      res.status(500).json({ error: "Failed to upload KYC documents" });
     }
   } catch (e) {
     res
       .status(500)
-      .json({ error: "Error in creating customer", message: e.message });
+      .json({ error: "Error in uploading documetns", message: e.message });
   }
 });
 router.put("/customers/:customerId", async (req, res) => {
@@ -77,20 +95,20 @@ router.delete("/customers/:customerId", async (req, res) => {
   }
 });
 
-router.post("/customers/account", async (req, res) => {
+router.post("/customers/:customerId/account", async (req, res) => {
   try {
-    const { name, accountNumber, ifsc } = req.body;
-    const getCustomer = await Customer.findOne({ name: name });
+    const { accountNumber, ifsc } = req.body;
+    const customerId = req.params.customerId;
+    const customer = await Customer.findById(customerId);
 
-    if (!getCustomer) {
+    if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
     }
 
     const account = new Account({
-      name: name,
       accountNumber: accountNumber,
       ifsc: ifsc,
-      customer: getCustomer._id,
+      customer: customerId
     });
     const customerAccount = await account.save();
 
@@ -112,13 +130,14 @@ router.post("/customers/account", async (req, res) => {
 
 router.put("/customers/account", async (req, res) => {
   try {
-    const { name, accountNumber, ifsc } = req.body;
-    const getCustomer = await Customer.findOne({ name: name });
-    if (!getCustomer) {
+    const { accountNumber, ifsc } = req.body;
+    const customerId = req.params.customerId;
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
     }
     const existingAccount = await Account.findOne({
-      customer: getCustomer._id,
+      customer: customerId,
     });
     if (!existingAccount) {
       return res.status(404).json({ message: "Customer's account not found" });
@@ -142,23 +161,24 @@ router.put("/customers/account", async (req, res) => {
   }
 });
 
-router.post("/customers/appraisal", async (req, res) => {
+router.post("/customers/:customerId/appraisal", async (req, res) => {
   try {
     const scheme = await Scheme.findOne({ schemeName: "scheme-one" });
-    const getCustomer = await Customer.findOne({ name: req.body.name });
+    const customerId = req.params.customerId;
+    const customer = await Customer.findById(customerId);
 
     if (!scheme) {
       res.status(404).json({ message: "Schema not found" });
       return;
     }
-    if (!getCustomer) {
+    if (!customer) {
       res.status(404).json({ message: "Customer not found" });
       return;
     }
     const newLoan = new Loan({
       jewels: req.body.jewels,
       scheme: scheme,
-      customer: getCustomer,
+      customer: customer,
     });
     await newLoan.save();
     res.status(201).json({ message: "Loan created successfully" });
@@ -166,19 +186,23 @@ router.post("/customers/appraisal", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-router.post("/customer/transaction", async (req, res) => {
+router.post("/customer/:customerId/transaction", async (req, res) => {
   try {
-    const customer = await Customer.findOne({ name: req.body.name });
+    const customerId = req.params.customerId;
+    const customer = await Customer.findById(customerId);
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
     }
-    const customerLoan = await Loan.findOne({ customer: customer._id });
-    const customerAccount = await Account.findOne({ customer: customer._id });
+    const customerLoan = await Loan.findOne({ customer: customerId });
+    const customerAccount = await Account.findOne({ customer: customerId });
     if (!customerLoan || !customerAccount) {
       return res
         .status(404)
         .json({ message: "Customer loan or account not found" });
     }
+    console.log("customerLoan", customerLoan);
+    console.log("customerAccount", customerAccount)
+    console.log('name',customer.name);
     const loanAmount = getRandomNumberFromArray(amount);
     const newTransaction = new Transaction({
       loan: customerLoan,

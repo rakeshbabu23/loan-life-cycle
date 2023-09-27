@@ -3,19 +3,23 @@ const mongoose = require("mongoose");
 const customerSchema = new mongoose.Schema({
   name: {
     type: "String",
-    required: true,
+    
+  },
+  contactInfo: {
+    type: "String",
+   
   },
   aadharFront: {
     type: "String",
-    required: true,
+    
   },
   aadharBack: {
     type: "String",
-    required: true,
+   
   },
   pan: {
     type: "String",
-    required: true,
+    
   },
 });
 
