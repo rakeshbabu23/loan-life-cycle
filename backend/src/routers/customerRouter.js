@@ -1,5 +1,6 @@
 const express = require("express");
 const app = express();
+const multer=require('multer')
 const router = new express.Router();
 const Customer = require("../db/models/customer");
 const Account = require("../db/models/account");
@@ -31,27 +32,45 @@ router.post('/customers', async (req, res) => {
   }
 });
 
-router.post("/customers/:customerId/kyc", async (req, res) => {
+const storage = multer.diskStorage({
+  destination: './uploads', // Specify the directory where uploads will be stored
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  },
+});
+
+const upload = multer({ storage: storage });
+
+router.post('/customers/:customerId/kyc', upload.fields([
+  { name: 'aadharFront', maxCount: 1 },
+  { name: 'aadharBack', maxCount: 1 },
+  { name: 'pan', maxCount: 1 },
+]), async (req, res) => {
   try {
-    const {aadharFront, aadharBack, pan } = req.body;
+    const customerId = req.params.customerId;
+    const { aadharFront, aadharBack, pan } = req.files;
+
     if (!aadharFront || !aadharBack || !pan) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res.status(400).json({ error: 'Missing required files' });
     }
-    const customer = new Customer(req.body);
+    const customer = await Customer.findById(customerId);
+    customer.aadharFront=aadharFront[0].path;
+    customer.aadharBack=aadharBack[0].path;
+    customer.pan=pan[0].path;
+
     const result = await customer.save();
+
     if (result) {
-      res.status(200).json({
-        message: "'KYC documents uploaded successfully'",
-      });
+      res.status(200).json({ message: 'KYC documents uploaded successfully' });
     } else {
-      res.status(500).json({ error: "Failed to upload KYC documents" });
+      res.status(500).json({ error: 'Failed to upload KYC documents' });
     }
   } catch (e) {
-    res
-      .status(500)
-      .json({ error: "Error in uploading documetns", message: e.message });
+    res.status(500).json({ error: 'Error in uploading documents', message: e.message });
   }
 });
+
 router.put("/customers/:customerId", async (req, res) => {
   try {
     const customerId = req.params.customerId;
@@ -94,6 +113,7 @@ router.delete("/customers/:customerId", async (req, res) => {
       .json({ error: "Error in deleting customer", message: e.message });
   }
 });
+
 
 router.post("/customers/:customerId/account", async (req, res) => {
   try {
@@ -200,9 +220,6 @@ router.post("/customer/:customerId/transaction", async (req, res) => {
         .status(404)
         .json({ message: "Customer loan or account not found" });
     }
-    console.log("customerLoan", customerLoan);
-    console.log("customerAccount", customerAccount)
-    console.log('name',customer.name);
     const loanAmount = getRandomNumberFromArray(amount);
     const newTransaction = new Transaction({
       loan: customerLoan,
